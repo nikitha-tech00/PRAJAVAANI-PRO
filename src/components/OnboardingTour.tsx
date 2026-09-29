@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, ArrowLeft, Check, X, Sparkles, Navigation, UserCheck, Mic, Search } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, X, Sparkles, Navigation, UserCheck, Mic, Search, Globe } from 'lucide-react';
 import type { LanguageCode } from '../types';
-import { getTranslation } from '../translations';
+import { getTranslation, SUPPORTED_LANGUAGES } from '../translations';
 import { GovEmblem } from './GovEmblem';
 
 interface OnboardingTourProps {
@@ -11,6 +11,7 @@ interface OnboardingTourProps {
   onNavigateToCitizen: () => void;
   onNavigateToReport: () => void;
   onNavigateToTrack: () => void;
+  onLanguageChange?: (lang: LanguageCode) => void;
 }
 
 export const OnboardingTour: React.FC<OnboardingTourProps> = ({
@@ -20,6 +21,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
   onNavigateToCitizen,
   onNavigateToReport,
   onNavigateToTrack,
+  onLanguageChange,
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const t = getTranslation(language);
@@ -58,8 +60,8 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'rgba(10, 25, 47, 0.78)',
-        backdropFilter: 'blur(6px)',
+        background: 'rgba(10, 25, 47, 0.82)',
+        backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -70,17 +72,17 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
       <div
         style={{
           background: '#ffffff',
-          borderRadius: '20px',
-          maxWidth: '560px',
+          borderRadius: '24px',
+          maxWidth: '580px',
           width: '100%',
           overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(245, 158, 11, 0.3)',
+          boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.45), 0 0 0 2px rgba(245, 158, 11, 0.4)',
           position: 'relative',
           border: '2px solid #f59e0b',
         }}
       >
         {/* Tricolor Ribbon Top Accent */}
-        <div style={{ height: '4px', width: '100%', display: 'flex' }}>
+        <div style={{ height: '5px', width: '100%', display: 'flex' }}>
           <div style={{ flex: 1, background: '#ff9933' }}></div>
           <div style={{ flex: 1, background: '#ffffff' }}></div>
           <div style={{ flex: 1, background: '#138808' }}></div>
@@ -91,15 +93,17 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
           style={{
             background: 'linear-gradient(135deg, #0c1f4a 0%, #0f2b5c 100%)',
             color: '#ffffff',
-            padding: '20px 24px',
+            padding: '18px 22px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid rgba(255,255,255,0.1)',
+            borderBottom: '1px solid rgba(255,255,255,0.12)',
+            flexWrap: 'wrap',
+            gap: '12px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <GovEmblem size={42} variant="ashoka" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <GovEmblem size={44} variant="logo" />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.3px', color: '#fef08a' }}>
@@ -109,34 +113,66 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
                   style={{
                     background: '#f59e0b',
                     color: '#0c1f4a',
-                    padding: '1px 6px',
-                    borderRadius: '4px',
-                    fontSize: '0.65rem',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.7rem',
                     fontWeight: 800,
                   }}
                 >
-                  {currentStep} / {totalSteps}
+                  Step {currentStep} / {totalSteps}
                 </span>
               </div>
               <div style={{ fontSize: '0.74rem', color: '#93c5fd' }}>{t.tagline}</div>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            style={{
-              background: 'rgba(255,255,255,0.1)',
-              color: '#ffffff',
-              padding: '6px',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            title="Skip / Close Tour"
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Direct Language Switcher Inside Tour Modal */}
+            {onLanguageChange && (
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <select
+                  value={language}
+                  onChange={(e) => onLanguageChange(e.target.value as LanguageCode)}
+                  style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '8px',
+                    padding: '4px 8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                  title="Change language directly"
+                >
+                  {SUPPORTED_LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code} style={{ background: '#0c1f4a', color: '#ffffff' }}>
+                      {l.name} ({l.englishName})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <button
+              onClick={onClose}
+              style={{
+                background: 'rgba(255,255,255,0.12)',
+                color: '#ffffff',
+                padding: '6px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+              title="Skip / Close Guidance"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Tour Step Body */}
@@ -166,23 +202,39 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
                 {t.tourStep1Desc}
               </p>
 
-              {/* Sovereign Heraldic Highlights */}
+              {/* Sovereign Heraldic Highlights with Arrow */}
               <div
                 style={{
-                  background: '#fffbeb',
-                  border: '1px solid #fde68a',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
+                  background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                  border: '2px solid #f59e0b',
+                  borderRadius: '14px',
+                  padding: '14px 16px',
                   textAlign: 'left',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
-                  marginBottom: '10px',
+                  gap: '14px',
+                  marginTop: '14px',
                 }}
               >
-                <div style={{ fontSize: '1.4rem' }}>🏛️</div>
-                <div style={{ fontSize: '0.8rem', color: '#92400e', lineHeight: 1.4 }}>
-                  <strong>{t.govtSealTitle}</strong> — {t.sovereignMotto}
+                <div
+                  style={{
+                    fontSize: '2rem',
+                    animation: 'bounceRight 1s infinite alternate ease-in-out',
+                    color: '#d97706',
+                    flexShrink: 0,
+                  }}
+                >
+                  ↗️
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#92400e' }}>
+                    👉 {language === 'te' ? 'పైభాగంలో మీ ప్రాధాన్య భాషను మార్చుకోండి (13 భాషలు)' : 'Step 1: Choose Your Preferred Language (13 Languages)'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#78350f', marginTop: '2px', lineHeight: 1.4 }}>
+                    {language === 'te'
+                      ? 'భాషను ఎంచుకున్న వెంటనే అన్ని సూచనలు, బటన్లు మరియు వాయిస్ ఇన్‌పుట్ స్వయంచాలకంగా మారుతాయి!'
+                      : 'All guidance steps, forms, and voice AI immediately adapt dynamically across all 13 Indian State languages.'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -211,38 +263,46 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
                     {t.tourStep2Title}
                   </h3>
                   <span style={{ fontSize: '0.78rem', color: '#f59e0b', fontWeight: 700 }}>
-                    👉 {t.fullNameLabel} & {t.mobileNumberLabel}
+                    👉 {t.fullNameLabel} & {t.mobileNumberLabel} / Gmail
                   </span>
                 </div>
               </div>
 
-              <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '18px' }}>
+              <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '16px' }}>
                 {t.tourStep2Desc}
               </p>
 
               {/* Animated Pointer Box */}
               <div
                 style={{
-                  background: '#f8fafc',
-                  border: '2px dashed #f59e0b',
-                  borderRadius: '12px',
-                  padding: '14px',
+                  background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                  border: '2px solid #3b82f6',
+                  borderRadius: '14px',
+                  padding: '14px 16px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
-                  position: 'relative',
+                  gap: '14px',
                 }}
               >
                 <div
                   style={{
-                    fontSize: '1.6rem',
+                    fontSize: '2rem',
                     animation: 'bounceRight 1s infinite alternate ease-in-out',
+                    color: '#2563eb',
+                    flexShrink: 0,
                   }}
                 >
                   👉
                 </div>
-                <div style={{ fontSize: '0.82rem', color: '#1e293b' }}>
-                  <strong>{t.aadhaarVerifiedBadge}</strong>: {t.aadhaarCompulsoryNote}
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e40af' }}>
+                    👉 {language === 'te' ? 'ఆధార్ పేరు & మొబైల్ (+91) లేదా జీమెయిల్‌తో లాగిన్ చేయండి' : 'Step 2: Enter Aadhaar Name & Mobile or Gmail'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#1e3a8a', marginTop: '2px', lineHeight: 1.4 }}>
+                    {language === 'te'
+                      ? 'OTP మొబైల్ లేదా జీమెయిల్‌కు పంపబడుతుంది. 1 నిమిషం తర్వాత తిరిగి పంపే అవకాశం ఉంటుంది. లాగిన్ సమాచారం స్వయంచాలకంగా సుపాబేస్‌లో కనెక్ట్ అవుతుంది!'
+                      : 'Receive OTP via Mobile or Gmail with a 1-minute resend timer. All login details connect in live Supabase cloud database.'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -275,39 +335,41 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
                 </div>
               </div>
 
-              <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '18px' }}>
+              <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '16px' }}>
                 {t.tourStep3Desc}
               </p>
 
-              {/* Step Highlights */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {/* Animated Pointer Box */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                  border: '2px solid #10b981',
+                  borderRadius: '14px',
+                  padding: '14px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                }}
+              >
                 <div
                   style={{
-                    background: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    borderRadius: '8px',
-                    padding: '10px',
-                    fontSize: '0.78rem',
-                    color: '#166534',
+                    fontSize: '2rem',
+                    animation: 'bounceRight 1s infinite alternate ease-in-out',
+                    color: '#059669',
+                    flexShrink: 0,
                   }}
                 >
-                  🎙 <strong>{t.voiceNotesTitle}</strong>
-                  <br />
-                  {t.voiceNote1}
+                  ⬇️
                 </div>
-                <div
-                  style={{
-                    background: '#eff6ff',
-                    border: '1px solid #bfdbfe',
-                    borderRadius: '8px',
-                    padding: '10px',
-                    fontSize: '0.78rem',
-                    color: '#1e40af',
-                  }}
-                >
-                  📸 <strong>{t.evidenceNotesTitle}</strong>
-                  <br />
-                  {t.evidenceNote1}
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#065f46' }}>
+                    ⬇️ {language === 'te' ? 'వాయిస్ మైక్‌తో మాట్లాడండి & ఫోటోను అప్‌లోడ్ చేయండి' : 'Step 3: Speak via Voice Mic & Upload Geotagged Evidence'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#047857', marginTop: '2px', lineHeight: 1.4 }}>
+                    {language === 'te'
+                      ? 'మీ భాషలో సమస్యను చెప్పండి. కంప్యూటర్ విజన్ AI ఫోటో నాణ్యతను తనిఖీ చేసి తగిన శాఖకు ఆటో-రౌట్ చేస్తుంది.'
+                      : 'Speak in your native language. AI grades defect severity and routes directly to departmental engineers.'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -340,9 +402,43 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
                 </div>
               </div>
 
-              <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '18px' }}>
+              <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '16px' }}>
                 {t.tourStep4Desc}
               </p>
+
+              {/* Animated Pointer Box */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #fefce8 0%, #fef08a 100%)',
+                  border: '2px solid #eab308',
+                  borderRadius: '14px',
+                  padding: '14px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '2rem',
+                    animation: 'bounceRight 1s infinite alternate ease-in-out',
+                    color: '#ca8a04',
+                    flexShrink: 0,
+                  }}
+                >
+                  👉
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#854d0e' }}>
+                    👉 {language === 'te' ? 'BEFORE / AFTER ఫోటోలను సరిచూసి పరిష్కారాన్ని ధృవీకరించండి' : 'Step 4: Inspect Before vs After Proof & Signoff'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#713f12', marginTop: '2px', lineHeight: 1.4 }}>
+                    {language === 'te'
+                      ? 'క్షేత్ర స్థాయి పనుల తర్వాత ఫోటోను చూసి మాత్రమే మీరు సంతృప్తి చెంది క్లోజ్ చేయవచ్చు లేదా రీఓపెన్ చేయవచ్చు!'
+                      : 'Inspect photographic field evidence. Citizens hold the sovereign right to mark Issue Resolved or Reopen.'}
+                  </div>
+                </div>
+              </div>
 
               <div
                 style={{
@@ -353,6 +449,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({
                   fontSize: '0.8rem',
                   color: '#334155',
                   lineHeight: 1.5,
+                  marginTop: '14px',
                 }}
               >
                 ⚖️ <strong>{t.verificationRightsTitle}</strong>

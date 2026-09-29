@@ -1,18 +1,59 @@
-import React from 'react';
+import React, { useState } from 'react';
+import logoImg from '../assets/prajavaani-logo.png';
 
 interface GovEmblemProps {
   size?: number;
-  variant?: 'ashoka' | 'kumbham' | 'combined';
+  variant?: 'logo' | 'ashoka' | 'kumbham' | 'combined';
   className?: string;
   showText?: boolean;
 }
 
 export const GovEmblem: React.FC<GovEmblemProps> = ({
-  size = 46,
-  variant = 'ashoka',
+  size = 48,
+  variant = 'logo',
   className = '',
   showText = false,
 }) => {
+  const [imgError, setImgError] = useState(false);
+
+  // Render official uploaded Prajavaani Pro logo by default
+  if ((variant === 'logo' || variant === 'ashoka' || variant === 'combined') && !imgError) {
+    return (
+      <div
+        className={className}
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          position: 'relative',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '50%',
+          overflow: 'hidden',
+          background: '#0c1f4a',
+          boxShadow: '0 4px 12px rgba(12, 31, 74, 0.28)',
+          border: '2px solid #f59e0b',
+          flexShrink: 0,
+        }}
+        title="Prajavaani Pro • Your Voice • Our Government"
+      >
+        <img
+          src={logoImg}
+          alt="Prajavaani Pro Official Logo"
+          onError={() => setImgError(true)}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center 26%',
+            transform: 'scale(1.22)',
+            display: 'block',
+          }}
+        />
+      </div>
+    );
+  }
+
   if (variant === 'kumbham') {
     return (
       <div

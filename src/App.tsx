@@ -35,16 +35,11 @@ export function App() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [openCreateWizardDirectly, setOpenCreateWizardDirectly] = useState(false);
 
-  // Guided Walkthrough Onboarding Tour (Auto shows on first visit or via #tour)
-  const [isTourOpen, setIsTourOpen] = useState(() => {
-    const hasSeen = localStorage.getItem('prajavaani_tour_seen');
-    if (window.location.hash === '#tour') return true;
-    return !hasSeen;
-  });
+  // Guided Walkthrough Onboarding Tour (Auto shows whenever app opens, or after entering login credentials)
+  const [isTourOpen, setIsTourOpen] = useState(true);
 
   const handleCloseTour = () => {
     setIsTourOpen(false);
-    localStorage.setItem('prajavaani_tour_seen', 'true');
     if (window.location.hash === '#tour') {
       window.history.replaceState(null, '', window.location.pathname);
     }
@@ -144,6 +139,7 @@ export function App() {
             language={language}
             onOpenTrackModal={handleOpenTrackModal}
             openCreateWizardImmediately={openCreateWizardDirectly}
+            onTriggerTour={() => setIsTourOpen(true)}
           />
         )}
 
@@ -164,6 +160,7 @@ export function App() {
         language={language}
         isOpen={isTourOpen}
         onClose={handleCloseTour}
+        onLanguageChange={setLanguage}
         onNavigateToCitizen={() => {
           setActiveRole('citizen');
           setCurrentView('citizen');

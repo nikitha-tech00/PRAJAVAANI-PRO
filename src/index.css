@@ -219,3 +219,18 @@ input, textarea, select {
   border-radius: var(--radius-lg);
   z-index: 10;
 }
+
+@keyframes bounceRight {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(8px); }
+}
+
+@keyframes pulseSlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.05); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}

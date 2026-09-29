@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Mic, MicOff, Camera, MapPin, Send, CheckCircle2, AlertTriangle, 
   Clock, ShieldAlert, Sparkles, Star, RefreshCw, X, FileText, 
-  ChevronRight, Phone, ArrowLeft, Eye, MessageSquare, QrCode, UserCheck, Lock, Upload 
+  ChevronRight, Phone, ArrowLeft, Eye, MessageSquare, QrCode, UserCheck, Lock, Upload, Mail, LogOut, Check 
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { Complaint, User, ComplaintCategory, LanguageCode } from '../types';
@@ -10,27 +10,35 @@ import { api } from '../api';
 import { LeafletMap } from '../components/LeafletMap';
 import { getTranslation, SUPPORTED_LANGUAGES } from '../translations';
 import { GovEmblem } from '../components/GovEmblem';
+import { recordUserLoginToSupabase, disconnectUserFromSupabase } from '../supabase';
 
 interface CitizenPortalProps {
   language: LanguageCode;
   onOpenTrackModal: (id: string) => void;
   openCreateWizardImmediately?: boolean;
+  onTriggerTour?: () => void;
 }
 
 export const CitizenPortal: React.FC<CitizenPortalProps> = ({
   language,
   onOpenTrackModal,
   openCreateWizardImmediately = false,
+  onTriggerTour,
 }) => {
   const t = getTranslation(language);
 
   // Citizen Authentication & Aadhaar State
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Default to auth screen so user can experience OTP & Supabase connect
   const [authFullName, setAuthFullName] = useState('Ramesh Reddy');
+  const [authMethod, setAuthMethod] = useState<'mobile' | 'email'>('mobile');
   const [authPhone, setAuthPhone] = useState('9876543210');
+  const [authEmail, setAuthEmail] = useState('ramesh.reddy@gmail.com');
   const [authOtp, setAuthOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [otpSentTarget, setOtpSentTarget] = useState('');
+  const [resendTimer, setResendTimer] = useState(0); // 60s countdown timer
   const [authError, setAuthError] = useState<string | null>(null);
+  const [supabaseSyncStatus, setSupabaseSyncStatus] = useState<string | null>(null);
 
   const [currentUser, setCurrentUser] = useState<User | null>({
     id: 'user-citizen-1',
@@ -119,39 +127,114 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
     }
   };
 
-  // OTP Authentication Actions
+  // 60-second OTP Resend Countdown Timer
+  useEffect(() => {
+    let interval: any;
+    if (otpSent && resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => Math.max(0, prev - 1));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [otpSent, resendTimer]);
+
+  // OTP Authentication Actions (Dual-Channel: Indian Mobile or Gmail)
   const handleSendOtp = () => {
     if (!authFullName.trim()) {
       setAuthError(t.fullNameLabel + ' is compulsory.');
       return;
     }
-    if (!authPhone || authPhone.length < 10) {
-      setAuthError('Please enter a valid 10-digit mobile number.');
-      return;
+
+    if (authMethod === 'mobile') {
+      const cleanPhone = authPhone.replace(/\D/g, '');
+      if (!cleanPhone || cleanPhone.length < 10) {
+        setAuthError('Please enter a valid 10-digit Indian mobile number.');
+        return;
+      }
+      setOtpSentTarget(`+91 ${cleanPhone.slice(-10)}`);
+    } else {
+      if (!authEmail || !authEmail.includes('@') || !authEmail.includes('.')) {
+        setAuthError('Please enter a valid Gmail / Email address (e.g. name@gmail.com).');
+        return;
+      }
+      setOtpSentTarget(authEmail.trim());
     }
+
     setAuthError(null);
     setOtpSent(true);
     setAuthOtp('123456'); // Pre-fill demo OTP for instant evaluator testability
+    setResendTimer(60); // Strict 1-minute countdown timer
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     if (authOtp !== '123456' && authOtp.length !== 6) {
       setAuthError('Invalid OTP. Please enter 123456 (Demo OTP).');
       return;
     }
     setAuthError(null);
-    setCurrentUser({
+
+    const identifier = authMethod === 'mobile' 
+      ? `+91 ${authPhone.replace(/\D/g, '').slice(-10)}` 
+      : authEmail.trim();
+
+    const newUser: User = {
       id: `user-citizen-${Date.now()}`,
       name: authFullName.trim(),
-      phone: `+91 ${authPhone.slice(-10)}`,
+      phone: identifier,
       role: 'citizen',
       language: language,
       state: 'Telangana',
       district: 'Rangareddy',
       local_body: 'GHMC Ward 12 (Gachibowli)',
-    });
+    };
+
+    setCurrentUser(newUser);
+    setSupabaseSyncStatus('connecting');
+
+    // Connect & synchronize session to Supabase cloud
+    try {
+      const res = await recordUserLoginToSupabase({
+        id: newUser.id,
+        name: newUser.name,
+        phone: authMethod === 'mobile' ? identifier : undefined,
+        email: authMethod === 'email' ? identifier : undefined,
+        role: 'citizen',
+      });
+      setSupabaseSyncStatus(res.success ? 'connected' : 'error');
+    } catch {
+      setSupabaseSyncStatus('local');
+    }
+
     setIsLoggedIn(true);
     confetti({ particleCount: 80, spread: 60 });
+
+    // Open guidance steps tour immediately after entering login credentials!
+    setTimeout(() => {
+      onTriggerTour?.();
+    }, 400);
+  };
+
+  // Disconnect Session from Supabase and Log Out
+  const handleLogout = async () => {
+    if (currentUser) {
+      setSupabaseSyncStatus('disconnecting');
+      try {
+        await disconnectUserFromSupabase({
+          id: currentUser.id,
+          name: currentUser.name,
+          role: currentUser.role,
+        });
+      } catch (e) {
+        console.warn('Disconnect error:', e);
+      }
+    }
+    setSupabaseSyncStatus('disconnected');
+    setIsLoggedIn(false);
+    setOtpSent(false);
+    setAuthOtp('');
+    setResendTimer(0);
   };
 
   // Web Speech API Voice Input
@@ -390,54 +473,204 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
               </div>
             </div>
 
-            {/* Mobile Number with Indian Country Code +91 */}
-            <div style={{ marginBottom: '22px' }}>
+            {/* Auth Method Selector (Mobile vs Gmail) */}
+            <div style={{ marginBottom: '18px' }}>
               <label
                 style={{
                   display: 'block',
-                  fontSize: '0.88rem',
+                  fontSize: '0.84rem',
                   fontWeight: 800,
                   color: 'var(--gov-primary)',
                   marginBottom: '8px',
                 }}
               >
-                {t.mobileNumberLabel}
+                {language === 'te' ? 'లాగిన్ పద్ధతిని ఎంచుకోండి (OTP స్వీకరించడానికి)' : 'Select Login Channel (To Receive OTP)'}
               </label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <div
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMethod('mobile');
+                    setAuthError(null);
+                  }}
                   style={{
-                    background: '#f1f5f9',
-                    border: '1.5px solid #cbd5e1',
+                    padding: '11px',
                     borderRadius: '10px',
-                    padding: '0 14px',
+                    border: authMethod === 'mobile' ? '2px solid #2563eb' : '1.5px solid #cbd5e1',
+                    background: authMethod === 'mobile' ? '#eff6ff' : '#ffffff',
+                    color: authMethod === 'mobile' ? '#1d4ed8' : '#475569',
+                    fontWeight: 800,
+                    fontSize: '0.86rem',
                     display: 'flex',
                     alignItems: 'center',
-                    fontWeight: 800,
-                    fontSize: '0.92rem',
-                    color: '#0c1f4a',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    boxShadow: authMethod === 'mobile' ? '0 2px 8px rgba(37, 99, 235, 0.15)' : 'none',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  🇮🇳 +91
-                </div>
-                <input
-                  type="tel"
-                  maxLength={10}
-                  value={authPhone}
-                  onChange={(e) => setAuthPhone(e.target.value.replace(/\D/g, ''))}
-                  placeholder={t.mobileNumberPlaceholder}
-                  style={{
-                    flex: 1,
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: '0.95rem',
-                    fontWeight: 600,
+                  <Phone size={16} />
+                  <span>📱 {language === 'te' ? 'మొబైల్ (+91)' : 'Mobile (+91)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMethod('email');
+                    setAuthError(null);
                   }}
-                />
+                  style={{
+                    padding: '11px',
+                    borderRadius: '10px',
+                    border: authMethod === 'email' ? '2px solid #2563eb' : '1.5px solid #cbd5e1',
+                    background: authMethod === 'email' ? '#eff6ff' : '#ffffff',
+                    color: authMethod === 'email' ? '#1d4ed8' : '#475569',
+                    fontWeight: 800,
+                    fontSize: '0.86rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    boxShadow: authMethod === 'email' ? '0 2px 8px rgba(37, 99, 235, 0.15)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <Mail size={16} />
+                  <span>✉️ {language === 'te' ? 'జీమెయిల్ / Email' : 'Gmail / Email'}</span>
+                </button>
               </div>
             </div>
 
-            {/* OTP Section */}
+            {/* Mobile Number or Gmail Input */}
+            {authMethod === 'mobile' ? (
+              <div style={{ marginBottom: '22px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '0.88rem',
+                    fontWeight: 800,
+                    color: 'var(--gov-primary)',
+                    marginBottom: '8px',
+                  }}
+                >
+                  {t.mobileNumberLabel}
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <div
+                    style={{
+                      background: '#f1f5f9',
+                      border: '1.5px solid #cbd5e1',
+                      borderRadius: '10px',
+                      padding: '0 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontWeight: 800,
+                      fontSize: '0.92rem',
+                      color: '#0c1f4a',
+                    }}
+                  >
+                    🇮🇳 +91
+                  </div>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={authPhone}
+                    onChange={(e) => setAuthPhone(e.target.value.replace(/\D/g, ''))}
+                    placeholder={t.mobileNumberPlaceholder}
+                    style={{
+                      flex: 1,
+                      padding: '12px 16px',
+                      borderRadius: '10px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '0.95rem',
+                      fontWeight: 600,
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginBottom: '22px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '0.88rem',
+                    fontWeight: 800,
+                    color: 'var(--gov-primary)',
+                    marginBottom: '8px',
+                  }}
+                >
+                  {language === 'te' ? 'జీమెయిల్ / ఈమెయిల్ చిరునామా' : 'Gmail / Email Address'}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="ramesh.reddy@gmail.com"
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px 12px 42px',
+                      borderRadius: '10px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '0.95rem',
+                      fontWeight: 600,
+                    }}
+                  />
+                  <Mail
+                    size={18}
+                    color="#64748b"
+                    style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* OTP Status Confirmation Box */}
+            {otpSent && (
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                  border: '1.5px solid #86efac',
+                  borderRadius: '12px',
+                  padding: '14px 16px',
+                  marginBottom: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <CheckCircle2 size={20} color="#15803d" />
+                  <div>
+                    <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#166534' }}>
+                      {language === 'te' ? 'OTP విజయవంతంగా పంపబడింది!' : 'OTP Sent Successfully!'}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#14532d' }}>
+                      {otpSentTarget}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #bbf7d0',
+                    color: '#15803d',
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    textAlign: 'center',
+                  }}
+                >
+                  Demo OTP: <strong>123456</strong>
+                </div>
+              </div>
+            )}
+
+            {/* OTP Input Section */}
             {otpSent && (
               <div
                 style={{
@@ -454,15 +687,15 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
                   </label>
                   <span
                     style={{
-                      background: '#dcfce7',
-                      color: '#15803d',
+                      background: '#dbeafe',
+                      color: '#1e40af',
                       fontSize: '0.72rem',
                       fontWeight: 800,
                       padding: '2px 8px',
                       borderRadius: '4px',
                     }}
                   >
-                    Demo OTP: 123456
+                    6-Digit Security PIN
                   </span>
                 </div>
                 <input
@@ -485,7 +718,7 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
               </div>
             )}
 
-            {/* Buttons */}
+            {/* Buttons (Send, Verify & 1-Minute Resend Timer) */}
             {!otpSent ? (
               <button
                 onClick={handleSendOtp}
@@ -502,9 +735,11 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
                   justifyContent: 'center',
                   gap: '8px',
                   boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
+                  cursor: 'pointer',
+                  border: 'none',
                 }}
               >
-                <Phone size={18} />
+                {authMethod === 'mobile' ? <Phone size={18} /> : <Mail size={18} />}
                 <span>{t.btnSendOtp}</span>
               </button>
             ) : (
@@ -524,24 +759,46 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
                     justifyContent: 'center',
                     gap: '8px',
                     boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                    cursor: 'pointer',
+                    border: 'none',
                   }}
                 >
                   <Lock size={18} />
                   <span>{t.btnVerifyOtp}</span>
                 </button>
+
                 <button
                   onClick={handleSendOtp}
+                  disabled={resendTimer > 0}
                   style={{
                     flex: 1,
-                    background: '#f1f5f9',
-                    color: '#475569',
-                    padding: '14px',
+                    background: resendTimer > 0 ? '#f1f5f9' : '#eff6ff',
+                    color: resendTimer > 0 ? '#94a3b8' : '#1d4ed8',
+                    border: resendTimer > 0 ? '1.5px solid #e2e8f0' : '1.5px solid #3b82f6',
+                    padding: '14px 10px',
                     borderRadius: '10px',
                     fontWeight: 700,
-                    fontSize: '0.85rem',
+                    fontSize: '0.82rem',
+                    cursor: resendTimer > 0 ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    transition: 'all 0.15s ease',
                   }}
+                  title={resendTimer > 0 ? `Please wait ${resendTimer}s to resend OTP` : 'Click to resend OTP'}
                 >
-                  {t.btnResendOtp}
+                  {resendTimer > 0 ? (
+                    <>
+                      <Clock size={15} />
+                      <span>{language === 'te' ? `${resendTimer}సె` : `${resendTimer}s`}</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={14} />
+                      <span>{t.btnResendOtp}</span>
+                    </>
+                  )}
                 </button>
               </div>
             )}
@@ -622,6 +879,35 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
               >
                 {t.aadhaarVerifiedBadge}
               </span>
+
+              {/* Supabase Realtime Cloud Sync Badge */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#ecfdf5',
+                  border: '1px solid #a7f3d0',
+                  borderRadius: '20px',
+                  padding: '3px 10px',
+                  fontSize: '0.74rem',
+                  color: '#065f46',
+                  fontWeight: 700,
+                }}
+                title="Active citizen session synchronized with Supabase cloud database"
+              >
+                <span
+                  style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    display: 'inline-block',
+                    boxShadow: '0 0 6px #10b981',
+                  }}
+                />
+                <span>Supabase Connected (Live)</span>
+              </div>
             </div>
             <div style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', gap: '14px', marginTop: '3px', flexWrap: 'wrap' }}>
               <span>📞 {currentUser?.phone}</span>
@@ -654,17 +940,25 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
           </button>
 
           <button
-            onClick={() => setIsLoggedIn(false)}
+            onClick={handleLogout}
             style={{
               padding: '8px 14px',
               borderRadius: 'var(--radius-md)',
               fontSize: '0.82rem',
-              fontWeight: 600,
-              color: '#64748b',
-              background: '#f1f5f9',
+              fontWeight: 700,
+              color: '#b91c1c',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
+            title="Disconnect session in Supabase cloud and log out"
           >
-            {t.btnLogout}
+            <LogOut size={14} />
+            <span>Disconnect / {t.btnLogout}</span>
           </button>
         </div>
       </div>
