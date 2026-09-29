@@ -137,6 +137,30 @@ PRAJAVAANI PRO implements a normalized schema:
 
 ---
 
+## ⚡ Supabase Cloud Integration (PostgreSQL, Realtime & Object Storage)
+
+PRAJAVAANI PRO is ready for **Supabase**:
+- **PostgreSQL Database**: Normalized schema with foreign keys, indexes, and audit logs.
+- **Supabase Real-Time**: Instant citizen timeline and admin command center updates.
+- **Object Storage Bucket (`evidence-photos`)**: High-resolution BEFORE and AFTER resolution evidence.
+- **Row Level Security (RLS)**: Enforced data privacy and zero citizen PII leakage on public tracking.
+
+### Quick Setup Instructions:
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Open the **SQL Editor** in your Supabase dashboard.
+3. Open `supabase/schema.sql` in this repo, copy its contents, paste them into the SQL Editor, and click **RUN**.
+4. In Supabase, go to **Project Settings → API** and copy:
+   - **Project URL**
+   - **anon / public key**
+5. Open `.env` in the project root and update:
+   ```env
+   VITE_SUPABASE_URL=https://your-project-id.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key-here
+   ```
+6. Restart your application with `npm run dev`.
+
+---
+
 ## 🏷 Product Identity
 
 - **Platform Name**: PRAJAVAANI PRO

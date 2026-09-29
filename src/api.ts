@@ -1,4 +1,5 @@
 import type { Complaint, Department, ComplaintCategory, User, SystemStats, NotificationItem, AuditLog, IncidentCluster } from './types';
+import { isSupabaseConfigured, insertSupabaseComplaint, uploadEvidenceToSupabase } from './supabase';
 
 const API_BASE = '/api';
 
@@ -74,7 +75,23 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to register complaint');
-    return res.json();
+    const created = await res.json();
+
+    // Async sync to Supabase if configured
+    if (isSupabaseConfigured()) {
+      insertSupabaseComplaint(created).catch((err) => {
+        console.warn('[Supabase Sync] Non-blocking sync warning:', err);
+      });
+    }
+
+    return created;
+  },
+
+  uploadEvidenceFile: async (file: File | Blob, fileName: string): Promise<string | null> => {
+    if (isSupabaseConfigured()) {
+      return uploadEvidenceToSupabase(file, fileName);
+    }
+    return null;
   },
 
   updateComplaintStatus: async (id: string, status: string, changedBy: string, role: string, note: string): Promise<Complaint> => {
