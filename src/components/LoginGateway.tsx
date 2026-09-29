@@ -266,6 +266,7 @@ export const LoginGateway: React.FC<LoginGatewayProps> = ({
         style={{
           maxWidth: '520px',
           width: '100%',
+          margin: '52px 0 24px',
           background: '#ffffff',
           borderRadius: '26px',
           border: '2px solid #f59e0b',
