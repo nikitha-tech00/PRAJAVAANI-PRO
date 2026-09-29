@@ -293,6 +293,10 @@ app.use((req, res, next) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`PRAJAVAANI PRO Full-Stack Platform running on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`PRAJAVAANI PRO Full-Stack Platform running on port ${PORT}`);
+  });
+}
+
+export default app;
