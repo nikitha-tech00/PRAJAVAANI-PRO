@@ -17,6 +17,7 @@ interface CitizenPortalProps {
   onOpenTrackModal: (id: string) => void;
   openCreateWizardImmediately?: boolean;
   onTriggerTour?: () => void;
+  onLogout?: () => void;
 }
 
 export const CitizenPortal: React.FC<CitizenPortalProps> = ({
@@ -24,11 +25,12 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
   onOpenTrackModal,
   openCreateWizardImmediately = false,
   onTriggerTour,
+  onLogout,
 }) => {
   const t = getTranslation(language);
 
   // Citizen Authentication & Aadhaar State
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Default to auth screen so user can experience OTP & Supabase connect
+  const [isLoggedIn, setIsLoggedIn] = useState(true); // Default to logged in as citizen authenticates through Sovereign Gateway
   const [authFullName, setAuthFullName] = useState('Ramesh Reddy');
   const [authMethod, setAuthMethod] = useState<'mobile' | 'email'>('mobile');
   const [authPhone, setAuthPhone] = useState('9876543210');
@@ -235,6 +237,7 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
     setOtpSent(false);
     setAuthOtp('');
     setResendTimer(0);
+    onLogout?.();
   };
 
   // Web Speech API Voice Input

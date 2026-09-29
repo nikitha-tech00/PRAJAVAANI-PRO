@@ -9,12 +9,53 @@ import { AIAssistantModal } from './components/AIAssistantModal';
 import { DemoFlowModal } from './components/DemoFlowModal';
 import { NotificationsModal } from './components/NotificationsModal';
 import { OnboardingTour } from './components/OnboardingTour';
-import type { UserRole, NotificationItem, LanguageCode } from './types';
+import { LoginGateway } from './components/LoginGateway';
+import { disconnectUserFromSupabase } from './supabase';
+import type { User, UserRole, NotificationItem, LanguageCode } from './types';
 import { api } from './api';
 
 export function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'citizen' | 'official' | 'transparency'>('landing');
   const [activeRole, setActiveRole] = useState<UserRole>('citizen');
+
+  // Authentication Gate State (App opens ONLY after successful login)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem('prajavaani_logged_in') === 'true';
+  });
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('prajavaani_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return null;
+  });
+
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    setIsLoggedIn(true);
+    localStorage.setItem('prajavaani_logged_in', 'true');
+    localStorage.setItem('prajavaani_user', JSON.stringify(user));
+    // Trigger Guidance Tour with arrow marks right after entering credentials!
+    setIsTourOpen(true);
+  };
+
+  const handleLogout = async () => {
+    if (currentUser) {
+      try {
+        await disconnectUserFromSupabase({
+          id: currentUser.id,
+          name: currentUser.name,
+          role: currentUser.role,
+        });
+      } catch (e) {
+        console.warn('Disconnect error:', e);
+      }
+    }
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+    localStorage.removeItem('prajavaani_logged_in');
+    localStorage.removeItem('prajavaani_user');
+  };
   
   // 13 Indian State Languages - Default to Telugu (or stored preference)
   const [language, setLanguageState] = useState<LanguageCode>(() => {
@@ -35,7 +76,7 @@ export function App() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [openCreateWizardDirectly, setOpenCreateWizardDirectly] = useState(false);
 
-  // Guided Walkthrough Onboarding Tour (Auto shows whenever app opens, or after entering login credentials)
+  // Guided Walkthrough Onboarding Tour (Auto shows on app entry, or after entering login credentials)
   const [isTourOpen, setIsTourOpen] = useState(true);
 
   const handleCloseTour = () => {
@@ -89,6 +130,18 @@ export function App() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // Show Sovereign Login Gateway FIRST.
+  // The app will NOT open until the citizen enters credentials and logs in to Supabase!
+  if (!isLoggedIn) {
+    return (
+      <LoginGateway
+        language={language}
+        onLanguageChange={setLanguage}
+        onLoginSuccess={handleLoginSuccess}
+      />
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Government Navigation & Quick Evaluator Switcher */}
@@ -108,6 +161,8 @@ export function App() {
         onResetDemo={handleResetDemoData}
         onTriggerDemoFlow={() => setIsDemoFlowOpen(true)}
         onOpenTour={() => setIsTourOpen(true)}
+        onLogout={handleLogout}
+        userName={currentUser?.name}
       />
 
       {/* Main View Router */}
@@ -140,6 +195,7 @@ export function App() {
             onOpenTrackModal={handleOpenTrackModal}
             openCreateWizardImmediately={openCreateWizardDirectly}
             onTriggerTour={() => setIsTourOpen(true)}
+            onLogout={handleLogout}
           />
         )}
 

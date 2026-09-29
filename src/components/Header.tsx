@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Globe, Search, RefreshCw, Sparkles, Navigation, ChevronDown, Check } from 'lucide-react';
+import { Bell, Globe, Search, RefreshCw, Sparkles, Navigation, ChevronDown, Check, LogOut } from 'lucide-react';
 import type { UserRole, LanguageCode } from '../types';
 import { getTranslation, SUPPORTED_LANGUAGES } from '../translations';
 import { GovEmblem } from './GovEmblem';
@@ -17,6 +17,8 @@ interface HeaderProps {
   onResetDemo: () => void;
   onTriggerDemoFlow: () => void;
   onOpenTour?: () => void;
+  onLogout?: () => void;
+  userName?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,6 +34,8 @@ export const Header: React.FC<HeaderProps> = ({
   onResetDemo,
   onTriggerDemoFlow,
   onOpenTour,
+  onLogout,
+  userName,
 }) => {
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const t = getTranslation(language);
@@ -448,6 +452,60 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             )}
           </button>
+
+          {/* Supabase Realtime Live Badge */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              padding: '6px 10px',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '0.74rem',
+              color: '#065f46',
+              fontWeight: 700,
+            }}
+            title="Session active and synchronized to Supabase Cloud"
+          >
+            <span
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: '#10b981',
+                display: 'inline-block',
+                boxShadow: '0 0 6px #10b981',
+              }}
+            />
+            <span>Supabase Live</span>
+          </div>
+
+          {/* Disconnect & Logout Button */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                color: '#b91c1c',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              title="Disconnect session in Supabase cloud and return to login"
+            >
+              <LogOut size={13} />
+              <span>Disconnect</span>
+            </button>
+          )}
         </div>
       </div>
     </header>
